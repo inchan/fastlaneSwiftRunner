@@ -72,6 +72,7 @@ struct AppVersion {
 
 /// .env 에서 값을 읽어오기 위함
 enum ENV: String {
+    case app_identifier
     case project, scheme, output_directory
     case git_message_commit, git_message_tag
     case slack_url
