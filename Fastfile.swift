@@ -32,6 +32,7 @@ class Fastfile: LaneFile {
         var parameters = Parameters(withOptions: options)
         parameters.version_update_type = parameters.version_update_type ?? .build
         parameters.upload_type = parameters.upload_type ?? .testflight
+        parameters.only_master_barnch = false
         
         self.parameters = parameters
         
@@ -44,13 +45,16 @@ class Fastfile: LaneFile {
         var parameters = Parameters(withOptions: options)
         parameters.version_update_type = parameters.version_update_type ?? .patch
         parameters.upload_type = parameters.upload_type ?? .appstore
+        parameters.only_master_barnch = false
         
         //self.parameters = parameters
         
+        /*
         Print.message("gymfile.project: \(gymfile.project)")
         Print.message("gymfile.workspace: \(gymfile.workspace)")
         Print.message("gymfile.scheme: \(gymfile.scheme)")
         Print.message("gymfile.outputDirectory: \(gymfile.outputDirectory)")
+         */
     }
     
     //MARK: - Distribution
@@ -84,7 +88,7 @@ class Fastfile: LaneFile {
                 fatalError("'master' 브랜치가 아닙니다. (현재 브런치: \(currentBranch))")
             }
         }
-        
+                
         if parameters.pod_update {
             // CocoaPods 업데이트
             cocoapods(repoUpdate: true, errorCallback: { (errorMessage) in
@@ -104,11 +108,12 @@ class Fastfile: LaneFile {
 
         defer {
             AppVersion.fetch(type: .next) { (info) in
-                var message = "current version<build>: \(AppVersion.current.version)<\(AppVersion.current.buildNumber)>"
+                var messages = ["current version<build>: \(AppVersion.current.version)<\(AppVersion.current.buildNumber)>"]
                 if AppVersion.isChanged {
-                    message.append("next version<build>: \(info.version)<\(info.buildNumber)>")
+                    messages.append("next version<build>: \(info.version)<\(info.buildNumber)>")
+                    messages.append("is version changed ... true")
                 }
-                Print.message(message)
+                Print.messages(messages)
             }
         }
 
@@ -179,22 +184,25 @@ class Fastfile: LaneFile {
 
         AppVersion.fetch(type: .next) { (info) in
             // 버전정보가 변경사항이 있을때만 git
-            //if AppVersion.isChanged {
+            
+            Print.message("is version changed ... true")
+
+            if AppVersion.isChanged {
                 
-            let commitMessageFormat: NSString = ENV.git_message_commit.nsValue
-            let commitMessage = NSString(format: commitMessageFormat, AppVersion.next.includeBuildNumberText) as String
+                let commitMessageFormat: NSString = ENV.git_message_commit.nsValue
+                let commitMessage = NSString(format: commitMessageFormat, AppVersion.next.includeBuildNumberText) as String
             
-            let tagMessageFormat: NSString = ENV.git_message_tag.nsValue
-            let tagMessage = NSString(format: tagMessageFormat, AppVersion.next.text) as String
+                let tagMessageFormat: NSString = ENV.git_message_tag.nsValue
+                let tagMessage = NSString(format: tagMessageFormat, AppVersion.next.text) as String
         
-            gitAdd(path: "*")
-            gitCommit(path: "*", message: commitMessage)
-            if parameters.upload_type == .appstore {
-                addGitTag(tag: tagMessage)
-            }
-            pushToGitRemote()
+                gitAdd(path: "*")
+                gitCommit(path: "*", message: commitMessage)
+                if parameters.upload_type == .appstore {
+                    addGitTag(tag: tagMessage)
+                }
+                pushToGitRemote()
             
-            //}
+            }
         }
     }
     
@@ -241,6 +249,7 @@ class Fastfile: LaneFile {
     func to_slack(message: String?, success: Bool = true, errorInfo: String? = nil) {
         
         let slackUrl = ENV.slack_url.value
+        guard slackUrl.isEmpty == false else { return }
         
         let payload: [String : String] = {
             let now = DateFormatter().string(from: Date())
