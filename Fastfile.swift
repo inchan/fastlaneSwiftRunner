@@ -65,8 +65,12 @@ class Fastfile: LaneFile {
         versionUpdateLane(withOptions: options)
         buildLane(withOptions: options)
         uploadLane(withOptions: options)
-        dsymUploadLane(withOptions: options)
         gitLane(withOptions: options)
+        
+        let delay: TimeInterval = 10.0
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            self.dsymUploadLane(withOptions: options)
+        }
     }
 
     //MARK: -
@@ -185,7 +189,11 @@ class Fastfile: LaneFile {
         AppVersion.fetch(type: .next) { (info) in
             // 버전정보가 변경사항이 있을때만 git
             
-            Print.message("is version changed ... true")
+            var messages = [String]()
+            messages.append("current version<build>: \(AppVersion.current.version)<\(AppVersion.current.buildNumber)>")
+            messages.append("next version<build>: \(AppVersion.next.version)<\(AppVersion.next.buildNumber)>")
+            messages.append("is version changed: \(AppVersion.isChanged)")
+            Print.messages(messages)
 
             if AppVersion.isChanged {
                 
@@ -195,6 +203,9 @@ class Fastfile: LaneFile {
                 let tagMessageFormat: NSString = ENV.git_message_tag.nsValue
                 let tagMessage = NSString(format: tagMessageFormat, AppVersion.next.text) as String
         
+                Print.message("commitMessage: \(commitMessage)")
+                Print.message("tagMessage: \(tagMessage)")
+
                 gitAdd(path: "*")
                 gitCommit(path: "*", message: commitMessage)
                 if parameters.upload_type == .appstore {
