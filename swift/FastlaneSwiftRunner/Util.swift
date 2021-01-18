@@ -72,8 +72,7 @@ struct AppVersion {
 
 /// .env 에서 값을 읽어오기 위함
 enum ENV: String {
-    case app_identifier
-    case project, scheme, output_directory
+    case app_identifier, project, scheme, output_directory, google_service_info_path
     case git_message_commit, git_message_tag
     case slack_url
     
@@ -87,7 +86,7 @@ enum ENV: String {
 }
 
 /// 콘솔에 정형화된 메시지를 보여주기 위함.
-struct Print {
+struct UI {
     
     static var prefix: String = "###"
     

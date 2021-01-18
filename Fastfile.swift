@@ -16,7 +16,8 @@ class Fastfile: LaneFile {
     
     func releaseLane(withOptions options: Options?) {
         desc("# Release Distribution Lane")
-        
+        desc("# bundle exec fastlane release version_update_type:patch upload_type:appstore")
+
         var parameters = Parameters(withOptions: options)
         parameters.version_update_type = parameters.version_update_type ?? .patch
         parameters.upload_type = parameters.upload_type ?? .appstore
@@ -28,6 +29,7 @@ class Fastfile: LaneFile {
     
     func betaLane(withOptions options: Options?) {
         desc("# Beta Distribution Lane")
+        desc("# bundle exec fastlane release version_update_type:build upload_type:testflight only_master_barnch:false")
         
         var parameters = Parameters(withOptions: options)
         parameters.version_update_type = parameters.version_update_type ?? .build
@@ -42,19 +44,6 @@ class Fastfile: LaneFile {
     func testLane(withOptions options: Options) {
         desc("# Test Distribution Lane")
 
-        var parameters = Parameters(withOptions: options)
-        parameters.version_update_type = parameters.version_update_type ?? .patch
-        parameters.upload_type = parameters.upload_type ?? .appstore
-        parameters.only_master_barnch = false
-        
-        //self.parameters = parameters
-        
-        /*
-        Print.message("gymfile.project: \(gymfile.project)")
-        Print.message("gymfile.workspace: \(gymfile.workspace)")
-        Print.message("gymfile.scheme: \(gymfile.scheme)")
-        Print.message("gymfile.outputDirectory: \(gymfile.outputDirectory)")
-         */
     }
     
     //MARK: - Distribution
@@ -66,11 +55,7 @@ class Fastfile: LaneFile {
         buildLane(withOptions: options)
         uploadLane(withOptions: options)
         gitLane(withOptions: options)
-        
-        let delay: TimeInterval = 10.0
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            self.dsymUploadLane(withOptions: options)
-        }
+        dsymUploadLane(withOptions: options)
     }
 
     //MARK: -
@@ -83,7 +68,7 @@ class Fastfile: LaneFile {
         let parameters = self.parameters ?? Parameters(withOptions: options)
         
         // LaneOpotions 표시
-        Print.message("parameters: \(parameters)")
+        UI.message("parameters: \(parameters)")
         
         if parameters.only_master_barnch {
             // 현재 브랜치 비교
@@ -104,6 +89,13 @@ class Fastfile: LaneFile {
     //MARK: -
     //MARK: -- Version update
 
+    /*! example
+     bundle exec fastlane version version_update_type:patch
+     bundle exec fastlane version version_update_type:minor
+     bundle exec fastlane version version_update_type:major
+     bundle exec fastlane version version_update_type:build
+     **/
+
     func versionUpdateLane(withOptions options: Options?) {
         
         desc("# 버전 정보 업데이트 ")
@@ -117,7 +109,7 @@ class Fastfile: LaneFile {
                     messages.append("next version<build>: \(info.version)<\(info.buildNumber)>")
                     messages.append("is version changed ... true")
                 }
-                Print.messages(messages)
+                UI.messages(messages)
             }
         }
 
@@ -142,9 +134,9 @@ class Fastfile: LaneFile {
         
         let parameters = self.parameters ?? Parameters(withOptions: options)
         buildIosApp(scheme: gymfile.scheme,
+                    outputDirectory: gymfile.outputDirectory,
                     configuration: parameters.build_configuration.rawValue,
                     exportXcargs: "-allowProvisioningUpdates")
-
     }
         
     //MARK: -
@@ -193,7 +185,7 @@ class Fastfile: LaneFile {
             messages.append("current version<build>: \(AppVersion.current.version)<\(AppVersion.current.buildNumber)>")
             messages.append("next version<build>: \(AppVersion.next.version)<\(AppVersion.next.buildNumber)>")
             messages.append("is version changed: \(AppVersion.isChanged)")
-            Print.messages(messages)
+            UI.messages(messages)
 
             if AppVersion.isChanged {
                 
@@ -203,8 +195,8 @@ class Fastfile: LaneFile {
                 let tagMessageFormat: NSString = ENV.git_message_tag.nsValue
                 let tagMessage = NSString(format: tagMessageFormat, AppVersion.next.text) as String
         
-                Print.message("commitMessage: \(commitMessage)")
-                Print.message("tagMessage: \(tagMessage)")
+                UI.message("commitMessage: \(commitMessage)")
+                UI.message("tagMessage: \(tagMessage)")
 
                 gitAdd(path: "*")
                 gitCommit(path: "*", message: commitMessage)
@@ -231,12 +223,14 @@ class Fastfile: LaneFile {
                       minVersion: parameters.version)
         
         guard let dsymPaths = laneContext()["DSYM_PATHS"] as? [String] else {
-            Print.message("dsymPaths nothing ...")
+            UI.message("dsymPaths nothing ...")
             return
         }
         
+        UI.message("DSYM_PATHS: \(dsymPaths)")
+
         /// step2. 다운로드 받은 DSYM 파일들을 Firebase에 업로드
-        dsymPaths.forEach({ uploadSymbolsToCrashlytics(dsymPath: $0) })
+        dsymPaths.forEach({ uploadSymbolsToCrashlytics(dsymPath: $0, gspPath: ENV.google_service_info_path.value) })
         
         /// step3. 다운로드 받은 DSYM 파일들 제거
         cleanBuildArtifacts()
@@ -302,7 +296,7 @@ class Fastfile: LaneFile {
     }
     
     func onError(currentLane: String, errorInfo: String) {
-        Print.message("ERROR: \(currentLane), errorInfo: \(errorInfo)")
+        UI.message("ERROR: \(currentLane), errorInfo: \(errorInfo)")
         let message = self.parameters?.upload_type?.failureMessage ?? "\(currentLane) 실패 .."
         to_slack(message: message, success: false, errorInfo: errorInfo)
     }

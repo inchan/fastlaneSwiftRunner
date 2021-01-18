@@ -1,4 +1,4 @@
-var appIdentifier: String { return ENV.app_identifier.rawValue } // The bundle identifier of your app
+var appIdentifier: String { return ENV.app_identifier.value } // The bundle identifier of your app
 var appleID: String { return "dreamsearch3@naver.com" } // Your Apple email address
 
 var itcTeam: String? { return "109080820" } // App Store Connect Team ID
